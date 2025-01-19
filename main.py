@@ -2,7 +2,7 @@ import pygame
 import os
 import sys
 import math
-import pytweening
+import numpy as np
 
 from random import randint
 
@@ -52,21 +52,111 @@ class EnemySpawner:
 class Map(pygame.sprite.Sprite):
     def __init__(self, name):
         super().__init__()
-        self.image = load_image(name)
-        self.speed = 50
-        self.v_x = 0  # скорость по x
-        self.v_y = 0  # скорость по y
-        self.rect = self.image.get_rect()
-        self.rect.x = -self.rect.width / 2 + size[0] / 2
-        self.rect.y = -self.rect.height / 2 + size[1] / 2
+        self.tile_probabilities = [0.2, 0.2, 0.2, 0.2, 0.075, 0.075, 0.05]
+        self.tile_ids = [1, 2, 3, 4, 5, 6, 7]
+        self.matrix = np.array([[np.random.choice(self.tile_ids, p=self.tile_probabilities) for k in range(10)] for i in range(10)])
+
+        self.rect = pygame.Rect(500, 500, 640, 640)
         self.pos = pygame.Vector2(self.rect.x, self.rect.y)
 
+        self.grass_1 = load_image('tiles/grass_1.png')
+        self.grass_1 = pygame.transform.scale(self.grass_1, (64, 64))
+        self.grass_2 = load_image('tiles/grass_2.png')
+        self.grass_2 = pygame.transform.scale(self.grass_2, (64, 64))
+        self.grass_3 = load_image('tiles/grass_3.png')
+        self.grass_3 = pygame.transform.scale(self.grass_3, (64, 64))
+        self.grass_4 = load_image('tiles/grass_4.png')
+        self.grass_4 = pygame.transform.scale(self.grass_4, (64, 64))
+        self.bush = load_image('tiles/bush.png')
+        self.bush = pygame.transform.scale(self.bush, (64, 64))
+        self.stomp = load_image('tiles/stomp.png')
+        self.stomp = pygame.transform.scale(self.stomp, (64, 64))
+        self.tree_1 = load_image('tiles/tree_1.png')
+        self.tree_1 = pygame.transform.scale(self.tree_1, (64, 64))
+        self.tree_2 = load_image('tiles/tree_2.png')
+        self.tree_2 = pygame.transform.scale(self.tree_2, (64, 64))
+
     def update(self, v_x, v_y):
+        tile_x, tile_y = 0, 0
+        if self.rect.x + 960 > player.rect.x + player.rect.width // 2:
+            self.matrix = np.insert(self.matrix, 0, [0 for i in range(np.shape(self.matrix)[0])], axis=1)
+            for i in range(np.shape(self.matrix)[0]):
+                if 1080 > self.rect.y + i * 64 > 0:
+                    self.matrix[i][0] = np.random.choice(self.tile_ids, p=self.tile_probabilities)
+            self.pos.x -= 64
+        elif self.rect.x + self.rect.width - 960 < player.rect.x + player.rect.width // 2:
+            self.matrix = np.insert(self.matrix, np.shape(self.matrix)[1], [0 for i in range(np.shape(self.matrix)[0])], axis=1)
+            for i in range(np.shape(self.matrix)[0]):
+                if 1080 > self.rect.y + i * 64 > 0:
+                    self.matrix[i][np.shape(self.matrix)[1] - 1] = np.random.choice(self.tile_ids, p=self.tile_probabilities)
+            self.rect.width += 64
+        if self.rect.y + 540 > player.rect.y + player.rect.height // 2:
+            self.matrix = np.insert(self.matrix, 0, [0 for i in range(np.shape(self.matrix)[1])], axis=0)
+            for i in range(np.shape(self.matrix)[1]):
+                if 1920 > self.rect.x + i * 64 > 0:
+                    self.matrix[0][i] = np.random.choice(self.tile_ids, p=self.tile_probabilities)
+            self.pos.y -= 64
+        elif self.rect.y + self.rect.height - 540 < player.rect.y + player.rect.height // 2:
+            self.matrix = np.insert(self.matrix, np.shape(self.matrix)[0], [0 for i in range(np.shape(self.matrix)[1])], axis=0)
+            for i in range(np.shape(self.matrix)[1]):
+                if 1920 > self.rect.x + i * 64 > 0:
+                    self.matrix[np.shape(self.matrix)[0] - 1][i] = np.random.choice(self.tile_ids, p=self.tile_probabilities)
+            self.rect.height += 64
+
+        if any(filter(lambda x: x == 7, self.matrix[0])):
+            self.matrix = np.insert(self.matrix, 0, [np.random.choice(self.tile_ids, p=self.tile_probabilities) for i in range(len(self.matrix[0]))], axis=0)
+            self.pos.y -= 64
+
         self.pos.x -= v_x / fps
         self.pos.y -= v_y / fps
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
-        screen.blit(self.image, self.rect)
+
+        """
+        1-4 - трава
+        5   - пенек
+        6   - куст
+        7   - нижняя часть дерева
+        8   - верхняя часть дерева
+        """
+        while self.rect.x + tile_x * 64 < -64:
+            tile_x += 1
+        while self.rect.y + tile_y * 64 < -64:
+            tile_y += 1
+        print(tile_x, tile_y)
+        for row in enumerate(self.matrix[tile_y:tile_y + 18]):
+            for item in enumerate(row[1][tile_x:tile_x + 31]):
+                if (self.rect.x + (item[0] + tile_x) * 64 > 1920 or self.rect.x + (item[0] + tile_x) * 64 < -64 or
+                        self.rect.y + (row[0] + tile_y) * 64 > 1080 or self.rect.y + (row[0] + tile_y) * 64 < -64):
+                    continue
+                if item[1] == 7:
+                    self.matrix[row[0] + tile_y - 1][item[0] + tile_x] = 8
+                if item[1] == 8 and len(self.matrix) > row[0] + 1 and self.matrix[row[0] + 1][item[0]] != 7:
+                    self.matrix[row[0] + tile_y][item[0] + tile_x] = np.random.choice(self.tile_ids,
+                                                                                      p=self.tile_probabilities)
+                if item[1] == 0:
+                    self.matrix[row[0] + tile_y][item[0] + tile_x] = np.random.choice(self.tile_ids,
+                                                                                      p=self.tile_probabilities)
+                    continue
+                if item[1] == 0:
+                    continue
+                elif item[1] == 1:
+                    image = self.grass_1
+                elif item[1] == 2:
+                    image = self.grass_2
+                elif item[1] == 3:
+                    image = self.grass_3
+                elif item[1] == 4:
+                    image = self.grass_4
+                elif item[1] == 5:
+                    image = self.stomp
+                elif item[1] == 6:
+                    image = self.bush
+                elif item[1] == 7:
+                    image = self.tree_1
+                else:
+                    image = self.tree_2
+                screen.blit(image, (self.rect.x + (item[0] + tile_x) * 64, self.rect.y + (row[0] + tile_y) * 64))
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, hp, weapons):
@@ -110,6 +200,7 @@ class Player(pygame.sprite.Sprite):
 
         text = myfont_32.render(f"lvl {self.level}", 1, (255, 50, 50))
         screen.blit(text, (1770, 5))
+
 
     def key_down(self):
         keys = pygame.key.get_pressed()
@@ -214,7 +305,6 @@ class Weapon:
         try:
             enemy = min([e for e in enemies], key=lambda e: player.pos.distance_to(pygame.math.Vector2(e.rect.x + e.rect.width / 2, e.rect.y + e.rect.height / 2)))
             dx, dy = (enemy.rect.x + enemy.rect.width / 2) - (player.rect.x + player.rect.width / 2), (enemy.rect.y + enemy.rect.height / 2) - (player.rect.y + player.rect.height / 2)
-            print(dx, dy)
             if enemy.rect.x < 0 or enemy.rect.x > 1920 or enemy.rect.y < 0 or enemy.rect.y > 1080:
                 return
             angle = math.degrees(math.atan2(dy, dx))
