@@ -24,6 +24,25 @@ def load_image(name, colorkey=None):
     return image
 
 
+def main_menu():
+    menu_running = True
+
+    while menu_running:
+        text_start = myfont_128.render("СТАРТ", True, (255, 245, 245))
+        screen.blit(text_start, (750, 200))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                menu_running = False
+                exit(0)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                rect = text_start.get_bounding_rect()
+                rect.x += 750
+                rect.y += 200
+                if pygame.Rect.collidepoint(rect, pos):
+                    menu_running = False
+        pygame.display.flip()
+
 class EnemySpawner:
     def __init__(self):
         self.time = 0
@@ -303,10 +322,19 @@ class Weapon:
 
     def shoot(self):
         try:
-            enemy = min([e for e in enemies], key=lambda e: player.pos.distance_to(pygame.math.Vector2(e.rect.x + e.rect.width / 2, e.rect.y + e.rect.height / 2)))
-            dx, dy = (enemy.rect.x + enemy.rect.width / 2) - (player.rect.x + player.rect.width / 2), (enemy.rect.y + enemy.rect.height / 2) - (player.rect.y + player.rect.height / 2)
-            if enemy.rect.x < 0 or enemy.rect.x > 1920 or enemy.rect.y < 0 or enemy.rect.y > 1080:
+            enemies1 = sorted([e for e in enemies], key=lambda e: player.pos.distance_to(pygame.math.Vector2(e.rect.x + e.rect.width / 2, e.rect.y + e.rect.height / 2)))
+            found_enemy = False
+            for enemy1 in enemies1:
+                if enemy1.rect.x < 0 or enemy1.rect.x > 1920 or enemy1.rect.y < 0 or enemy1.rect.y > 1080:
+                    continue
+                else:
+                    found_enemy = True
+                    enemy = enemy1
+                    break
+            if not found_enemy:
                 return
+            dx, dy = (enemy.rect.x + enemy.rect.width / 2) - (player.rect.x + player.rect.width / 2), (
+                        enemy.rect.y + enemy.rect.height / 2) - (player.rect.y + player.rect.height / 2)
             angle = math.degrees(math.atan2(dy, dx))
             if angle < 0:
                 angle += 360
@@ -379,8 +407,12 @@ if __name__ == '__main__':
     font_size = 64
     myfont_64 = pygame.font.Font(font_path, font_size)
     myfont_32 = pygame.font.Font(font_path, 32)
+    myfont_128 = pygame.font.Font(font_path, 128)
 
     pygame.time.set_timer(SHOOT, 500)
+
+    main_menu()
+
     while running:
         screen.fill(colors[1])
         for event in pygame.event.get():
