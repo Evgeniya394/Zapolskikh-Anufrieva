@@ -7,6 +7,7 @@ import numpy as np
 from random import randint
 
 
+
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
     # если файл не существует, то выходим
@@ -249,8 +250,8 @@ class Player(pygame.sprite.Sprite):
                 if item[1] == 5 or item[1] == 7:
                     rect = pygame.Rect(item[0] * 64 + map.rect.x % 64 - 64, row[0] * 64 + map.rect.y % 64 - 64, 64, 64)
                     if pygame.Rect.colliderect(self.rect, rect):
-                        self.pos.x += 1
-                        self.rect.x = self.pos.x
+                        self.v_y += 1
+                        continue
                     self.pos.move_towards_ip(pygame.Vector2(self.rect.x + self.v_x, self.rect.y + self.v_y), self.speed / fps)
                     rect_self = self.rect.copy()
                     rect_self.x = self.pos[0]
@@ -348,6 +349,8 @@ class Projectile(pygame.sprite.Sprite):
         for collision in enemy_collisions:
             if pygame.sprite.collide_mask(self, collision):
                 collision.hp -= self.damage
+                damage_text = DamageNumber(self.rect.x + self.rect.width // 2, self.rect.y + self.rect.height // 2, self.damage)
+                texts.add(damage_text)
                 self.kill()
 
 
@@ -420,6 +423,24 @@ class ExperienceShard(Item):
         screen.blit(self.image, (self.pos.x, self.pos.y))
 
 
+class DamageNumber(pygame.sprite.Sprite):
+    def __init__(self, x, y, damage):
+        super().__init__()
+        self.text = myfont_32.render(f"-{damage}", 1, (220, 0, 0))
+        self.rect = pygame.Rect(x, y, 0, 0)
+        self.pos = pygame.Vector2(x, y)
+        self.text_timer = 500
+
+    def update(self, v_x, v_y):
+        self.pos.move_towards_ip(pygame.Vector2(self.rect.x - v_x, self.rect.y - v_y), player.speed / fps * 0.8)
+        self.rect.x = self.pos.x
+        self.rect.y = self.pos.y
+        screen.blit(self.text, (self.rect.x + self.rect.width // 2, self.rect.y + self.rect.height // 2))
+        self.text_timer -= clock.get_time()
+        if self.text_timer < 0:
+            self.kill()
+
+
 if __name__ == '__main__':
     pygame.init()
     pygame.display.set_caption("Vampire Survivors на минималках")
@@ -442,6 +463,7 @@ if __name__ == '__main__':
     enemies = pygame.sprite.Group()
     projectiles = pygame.sprite.Group()
     items = pygame.sprite.Group()
+    texts = pygame.sprite.Group()
 
     pygame.font.init()
     font_path = "data/Monocraft.ttc"
@@ -477,6 +499,8 @@ if __name__ == '__main__':
 
         player.update()
         player.draw()
+
+        texts.update(v_x, v_y)
         if player.hp < 0:
             print("game over!")
             running = False
