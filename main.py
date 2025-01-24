@@ -7,7 +7,6 @@ import numpy as np
 from random import randint
 
 
-
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
     # если файл не существует, то выходим
@@ -58,7 +57,10 @@ def main_menu():
 class EnemySpawner:
     def __init__(self):
         self.time = 0
+        self.wave_time = 0
         self.interval = 3000
+        self.wave_interval = 2000
+        self.wave_counter = 1
 
     def spawn_enemy(self):
         x, y, d = randint(-100, 2000), randint(-100, 1200), randint(0, 3)
@@ -75,9 +77,18 @@ class EnemySpawner:
 
     def update(self):
         self.time += clock.get_time()
+        self.wave_time += clock.get_time()
         if self.time >= self.interval:
             self.spawn_enemy()
             self.time = 0
+        if self.wave_time >= self.wave_interval:
+            self.interval = 3000 - self.wave_counter ** 2
+            if self.interval < 0:
+                self.interval = 100
+                self.wave_counter += 1
+            self.wave_time = 0
+
+
 
 
 class Map(pygame.sprite.Sprite):
@@ -107,6 +118,10 @@ class Map(pygame.sprite.Sprite):
         self.tree_1 = pygame.transform.scale(self.tree_1, tile_size)
         self.tree_2 = load_image('tiles/tree_2.png')
         self.tree_2 = pygame.transform.scale(self.tree_2, tile_size)
+        self.tree_1_top = load_image('tiles/tree_1_top.png')
+        self.tree_1_top = pygame.transform.scale(self.tree_1_top, tile_size)
+        self.tree_2_top = load_image('tiles/tree_2_top.png')
+        self.tree_2_top = pygame.transform.scale(self.tree_2_top, tile_size)
 
     def update(self, v_x, v_y):
         tile_x, tile_y = 0, 0
@@ -199,6 +214,22 @@ class Map(pygame.sprite.Sprite):
                     image = self.tree_2
                 screen.blit(image, (self.rect.x + (item[0] + tile_x) * 64, self.rect.y + (row[0] + tile_y) * 64))
 
+    def draw_tree_over(self):
+        tile_x, tile_y = 0, 0
+        while self.rect.x + tile_x * 64 < -64:
+            tile_x += 1
+        while self.rect.y + tile_y * 64 < -64:
+            tile_y += 1
+        for row in enumerate(self.matrix[tile_y:tile_y + 18]):
+            for item in enumerate(row[1][tile_x:tile_x + 31]):
+                if item[1] == 7:
+                    image = self.tree_1_top
+                elif item[1] == 8:
+                    image = self.tree_2_top
+                else:
+                    continue
+                screen.blit(image, (self.rect.x + (item[0] + tile_x) * 64, self.rect.y + (row[0] + tile_y) * 64))
+
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, hp, weapons):
@@ -248,18 +279,22 @@ class Player(pygame.sprite.Sprite):
         for row in enumerate(map.matrix[tile_y:tile_y + 18]):
             for item in enumerate(row[1][tile_x:tile_x + 31]):
                 if item[1] == 5 or item[1] == 7:
-                    rect = pygame.Rect(item[0] * 64 + map.rect.x % 64 - 64, row[0] * 64 + map.rect.y % 64 - 64, 64, 64)
+                    rect = pygame.Rect(item[0] * 64 + map.rect.x % 64 - 49, row[0] * 64 + map.rect.y % 64 - 50, 36, 43)
                     if pygame.Rect.colliderect(self.rect, rect):
-                        self.v_y += 1
+                        if self.rect.y + 5 > rect.y:
+                            self.v_y += 1
+                        else:
+                            self.v_y -= 1
                         continue
                     self.pos.move_towards_ip(pygame.Vector2(self.rect.x + self.v_x, self.rect.y + self.v_y), self.speed / fps)
-                    rect_self = self.rect.copy()
-                    rect_self.x = self.pos[0]
-                    rect_self.y = self.pos[1]
+                    rect_self = pygame.Rect(self.pos.x, self.pos.y, self.rect.width, self.rect.height + 1)
                     if pygame.Rect.colliderect(rect_self, rect):
-                        self.v_x, self.v_y = 0, 0
-                    self.pos.move_towards_ip(pygame.Vector2(self.rect.x - self.v_x, self.rect.y - self.v_y),
-                                             self.speed / fps)
+                        if self.rect.x + 1 > rect.x + rect.width or self.rect.x + self.rect.width < rect.x + 1:
+                            self.v_x = 0
+                        if self.rect.y + 1 > rect.y + rect.height or self.rect.y + self.rect.height < rect.y + 1:
+                            self.v_y = 0
+                    self.pos.x = self.rect.x
+                    self.pos.y = self.rect.y
         return float(self.v_x), float(self.v_y)
 
     def shoot(self):
@@ -292,6 +327,8 @@ class Player(pygame.sprite.Sprite):
 
         text = myfont_32.render(f"lvl {self.level}", 1, (255, 50, 50))
         screen.blit(text, (1770, 5))
+
+        map.draw_tree_over()
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -447,6 +484,7 @@ if __name__ == '__main__':
     size = [1920, 1080]   #  размер окна
 
     screen = pygame.display.set_mode(size)
+    screen.convert_alpha()
     colors = [pygame.Color("white"), pygame.Color("black")]
     screen.fill(colors[1])
 
@@ -456,6 +494,14 @@ if __name__ == '__main__':
     running = True
     clock = pygame.time.Clock()
     fps = 60
+
+    pygame.font.init()
+    font_path = "data/Monocraft.ttc"
+    font_size = 64
+    myfont_64 = pygame.font.Font(font_path, font_size)
+    myfont_32 = pygame.font.Font(font_path, 32)
+    myfont_128 = pygame.font.Font(font_path, 128)
+
     map = Map("default_map2.png")
     weapon = Weapon("default_weapon", 60, 20, 350, 1.5)
     player = Player(1000, 500, 75, 90, 100, [weapon])
@@ -464,13 +510,6 @@ if __name__ == '__main__':
     projectiles = pygame.sprite.Group()
     items = pygame.sprite.Group()
     texts = pygame.sprite.Group()
-
-    pygame.font.init()
-    font_path = "data/Monocraft.ttc"
-    font_size = 64
-    myfont_64 = pygame.font.Font(font_path, font_size)
-    myfont_32 = pygame.font.Font(font_path, 32)
-    myfont_128 = pygame.font.Font(font_path, 128)
 
     pygame.time.set_timer(SHOOT, 500)
 
@@ -486,7 +525,6 @@ if __name__ == '__main__':
         v_x, v_y = player.key_down()
         map.update(v_x, v_y)
         map.draw()
-        spawner.update()
         enemies.update(v_x, v_y)
         enemies.draw(screen)
         player.move_to_center()
@@ -501,6 +539,7 @@ if __name__ == '__main__':
         player.draw()
 
         texts.update(v_x, v_y)
+        spawner.update()
         if player.hp < 0:
             print("game over!")
             running = False
