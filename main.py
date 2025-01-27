@@ -4,7 +4,7 @@ import sys
 import math
 import numpy as np
 
-from random import randint
+from random import randint, choices
 
 
 def load_image(name, colorkey=None):
@@ -54,6 +54,73 @@ def main_menu():
         pygame.display.flip()
 
 
+def level_up():
+    level_up_sound = pygame.mixer.Sound("data/sounds/level_up.wav")
+    pygame.mixer.find_channel(True).play(level_up_sound)
+
+    text_level_up = myfont_64.render("НОВЫЙ УРОВЕНЬ!", True, (0, 50, 30))
+    level_up_x = 700
+    level_up_y = 180
+
+    try:
+        upgrades = choices(list(filter(lambda x: x[1] < x[2], player.upgrades)), k=3)
+    except IndexError:
+        return
+
+    rects = [((520, 330), myfont_48.render(upgrades[0][0], True, (0, 50, 30)),
+              pygame.Rect(500, 300, 900, 100), (215, 195, 115),
+              myfont_48.render(upgrades[0][3], True, (0, 50, 30)), (1250, 330)),
+             ((520, 500), myfont_48.render(upgrades[1][0], True, (0, 50, 30)),
+              pygame.Rect(500, 470, 900, 100), (215, 195, 115),
+              myfont_48.render(upgrades[1][3], True, (0, 50, 30)), (1250, 500)),
+             ((520, 670), myfont_48.render(upgrades[2][0], True, (0, 50, 30)),
+              pygame.Rect(500, 640, 900, 100), (215, 195, 115),
+              myfont_48.render(upgrades[2][3], True, (0, 50, 30)), (1250, 670))]
+
+    window = pygame.Rect(450, 170, 1000, 800)
+    window_color = (235, 213, 133)
+
+    leveling_up = True
+
+    while leveling_up:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                exit(0)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    pos = event.pos
+                    for rect in enumerate(rects):
+                        if pygame.Rect.collidepoint(rect[1][2], pos):
+                            player.upgrades[player.upgrades.index(upgrades[rect[0]])][1] += 1
+                            leveling_up = False
+
+        pygame.draw.rect(screen, window_color, window, 1000, 15)
+        for rect in rects:
+            pygame.draw.rect(screen, rect[3], rect[2], 50, 5)
+            screen.blit(rect[1], rect[0])
+            screen.blit(rect[4], rect[5])
+        screen.blit(text_level_up, (level_up_x, level_up_y))
+        pygame.display.flip()
+
+
+def game_over():
+    game_over_sound = pygame.mixer.Sound("data/sounds/game_over.wav")
+    pygame.mixer.find_channel(True).play(game_over_sound)
+    time = 0
+    game_over = True
+    surface = pygame.Surface((1920, 1080), pygame.SRCALPHA)
+
+    global running
+    running = False
+    while game_over:
+        time += clock.get_time()
+        if time > 2000:
+            game_over = False
+        surface.fill((255, 0, 0, 2))
+        screen.blit(surface, (0, 0))
+        pygame.display.flip()
+        clock.tick(fps)
+
 class EnemySpawner:
     def __init__(self):
         self.time = 0
@@ -72,7 +139,7 @@ class EnemySpawner:
             x = -200
         elif d == 3:
             x = 2000
-        enemy = Enemy(x, y, 80, 100, 10, 10, 60)
+        enemy = Enemy(x, y, 80, 100, 20, 10, 60)
         enemies.add(enemy)
 
     def update(self):
@@ -87,8 +154,6 @@ class EnemySpawner:
                 self.interval = 100
                 self.wave_counter += 1
             self.wave_time = 0
-
-
 
 
 class Map(pygame.sprite.Sprite):
@@ -242,7 +307,9 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-        self.pos = pygame.Vector2(x, y)
+        self.pos = pygame.Vector2(960 - self.rect.width // 2, 540 - self.rect.height // 2)
+        self.rect.x = self.pos.x
+        self.rect.y = self.pos.y
         self.rect.width = width
         self.rect.height = height
         self.hp = hp
@@ -250,15 +317,32 @@ class Player(pygame.sprite.Sprite):
         self.weapons = weapons
         self.experience = 0
         self.level = 0
+        self.walk_sound = pygame.mixer.Sound("data/sounds/player_walking.wav")
+        self.walk_sound.set_volume(0.6)
+        self.walk_cooldown = 400
+        self.upgrades = [["damage", 0, 6, "+15%"], ["projectile speed", 0, 5, "+20%"],
+                         ["movement speed", 0, 4, "+15%"], ["fire rate", 0, 6, "+12%"],
+                         ["projectile size", 0, 4, "+20%"], ["max hp", 0, 5, "+30%"],["hp regen", 0, 4, "+40%"],
+                         ["projectile amount", 0, 3, "+1"], ["experience gain", 0, 5, "+20%"]]
 
     def update(self):
+        self.max_hp = 100 * (1 + 0.3 * self.upgrades[5][1])
         self.v_x, self.v_y = 0, 0
-        self.hp += 0.5 / fps
+        self.hp += 0.5 * (1 + 0.4 * self.upgrades[6][1]) / fps
         enemy_collisions = pygame.sprite.spritecollide(self, enemies, False)
         for collision in enemy_collisions:
             self.hp -= collision.damage / fps
+        if self.experience > 30 * self.level ** 1.08 + 45:
+            self.gain_experience(0)
+        if self.hp < 0:
+            game_over()
+            self.kill()
+        for weapon in self.weapons:
+            weapon.update()
+
 
     def key_down(self):
+        #self.experience += 1
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a]:
             self.v_x -= self.speed
@@ -295,22 +379,24 @@ class Player(pygame.sprite.Sprite):
                             self.v_y = 0
                     self.pos.x = self.rect.x
                     self.pos.y = self.rect.y
+        self.walk_cooldown -= clock.get_time()
+        if (abs(self.v_x) > 10 or abs(self.v_y) > 10) and self.walk_cooldown <= 0:
+            pygame.mixer.find_channel(True).play(self.walk_sound)
+            self.walk_cooldown = 400
+        self.v_x *= (1 + 0.15 * self.upgrades[5][1])
+        self.v_y *= (1 + 0.15 * self.upgrades[5][1])
         return float(self.v_x), float(self.v_y)
 
-    def shoot(self):
-        for weapon in self.weapons:
-            weapon.shoot()
-
-    def move_to_center(self):
-        self.pos = pygame.Vector2(960 - self.rect.width // 2, 540 - self.rect.height // 2)
-        self.rect.x = self.pos.x
-        self.rect.y = self.pos.y
-
     def gain_experience(self, amt):
-        self.experience += amt
+        self.experience += amt * (1 + 0.2 * self.upgrades[8][1])
         if self.experience >= 30 * self.level ** 1.08 + 45:
-            self.experience = 0
+            self.experience -= (30 * self.level ** 1.08 + 45)
             self.level += 1
+            level_up()
+            while self.experience >= 30 * self.level ** 1.08 + 45:
+                self.experience -= (30 * self.level ** 1.08 + 45)
+                self.level += 1
+                level_up()
 
     def draw(self):
         screen.blit(player.image, (player.rect.x, player.rect.y))
@@ -320,7 +406,7 @@ class Player(pygame.sprite.Sprite):
         pygame.draw.rect(screen, (200, 50, 50), (self.rect.x + (self.hp / self.max_hp) * self.rect.width + 1,
                                                  self.rect.y + self.rect.height + 5,
                                                  self.rect.width - (self.hp / self.max_hp) * self.rect.width, 15))
-
+        map.draw_tree_over()
         pygame.draw.rect(screen, (150, 150, 150), (0, 0, 1920, 40))
         pygame.draw.rect(screen, (14, 110, 251), (0, 0, 1920 *
                                                   (self.experience / (30 * self.level ** 1.08 + 45)), 40))
@@ -328,7 +414,6 @@ class Player(pygame.sprite.Sprite):
         text = myfont_32.render(f"lvl {self.level}", 1, (255, 50, 50))
         screen.blit(text, (1770, 5))
 
-        map.draw_tree_over()
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -346,6 +431,8 @@ class Enemy(pygame.sprite.Sprite):
         self.damage = damage
         self.hp = hp
         self.max_hp = hp
+        self.death_sound = pygame.mixer.Sound("data/sounds/enemy_kill.wav")
+        self.death_sound.set_volume(0.7)
 
     def update(self, v_x, v_y):
         self.pos.move_towards_ip(pygame.Vector2(self.rect.x - v_x, self.rect.y - v_y), player.speed / fps)
@@ -356,6 +443,7 @@ class Enemy(pygame.sprite.Sprite):
             experience = ExperienceShard("experience_shard", self.rect.x + self.rect.width // 2,
                                          self.rect.y + self.rect.height // 2, 19, 25, 10)
             items.add(experience)
+            pygame.mixer.find_channel().play(self.death_sound)
             self.kill()
 
 
@@ -374,6 +462,8 @@ class Projectile(pygame.sprite.Sprite):
         self.rect.height = max(width, height)
         self.pos = pygame.Vector2(self.rect.x, self.rect.y)
         self.damage = damage
+        self.enemy_hit_sound = pygame.mixer.Sound("data/sounds/enemy_hit.wav")
+        self.enemy_hit_sound.set_volume(0.3)
 
     def update(self, v_x, v_y):
         self.pos.move_towards_ip(pygame.Vector2(self.rect.x - v_x, self.rect.y - v_y), player.speed / fps)
@@ -388,6 +478,7 @@ class Projectile(pygame.sprite.Sprite):
                 collision.hp -= self.damage
                 damage_text = DamageNumber(self.rect.x + self.rect.width // 2, self.rect.y + self.rect.height // 2, self.damage)
                 texts.add(damage_text)
+                pygame.mixer.find_channel().play(self.enemy_hit_sound)
                 self.kill()
 
 
@@ -398,6 +489,8 @@ class Weapon:
         self.proj_damage = proj_damage
         self.proj_speed = proj_speed
         self.name = name
+        self.reload_time = 1000
+        self.time_ibs = 300
 
     def shoot(self):
         try:
@@ -417,10 +510,26 @@ class Weapon:
             angle = math.degrees(math.atan2(dy, dx))
             if angle < 0:
                 angle += 360
-            projectile = Projectile(player.rect.x + player.rect.width / 2, player.rect.y + player.rect.height / 2, self.proj_width, self.proj_height, angle, self.proj_speed, self.proj_damage)
+            projectile = Projectile(player.rect.x + player.rect.width / 2 + randint(-20, 20),
+                                    player.rect.y + player.rect.height / 2 + randint(-20, 20),
+                                    self.proj_width * (1 + 0.2 * player.upgrades[4][1]),
+                                    self.proj_height * (1 + 0.2 * player.upgrades[4][1]), angle,
+                                    self.proj_speed * (1 + 0.2 * player.upgrades[1][1]),
+                                    self.proj_damage * (1 + 0.15 * player.upgrades[0][1]))
             projectiles.add(projectile)
         except ValueError:
             pass
+
+    def update(self):
+        self.reload_time -= clock.get_time()
+        if self.reload_time <= 0:
+            self.shoot()
+            for i in range(player.upgrades[7][1]):
+                while self.time_ibs > 0:
+                    self.time_ibs -= clock.get_time()
+                self.time_ibs = 300
+                self.shoot()
+            self.reload_time = 1000 * (1 - 0.12 * player.upgrades[3][1])
 
 
 class Item(pygame.sprite.Sprite):
@@ -445,6 +554,7 @@ class ExperienceShard(Item):
     def __init__(self, name, x, y, width, height, amt):
         super().__init__(name, x, y, width, height)
         self.amt = amt
+        self.pickup_sound = pygame.mixer.Sound("data/sounds/pickup.wav")
 
     def update(self, v_x, v_y):
         self.pos.move_towards_ip(pygame.Vector2(self.rect.x - v_x, self.rect.y - v_y), player.speed / fps)
@@ -453,6 +563,7 @@ class ExperienceShard(Item):
         if self.pos.distance_to(pygame.Vector2(player.rect.x + player.rect.width // 2,
                                                player.rect.y + player.rect.height // 2)) < 50:
             player.gain_experience(self.amt)
+            pygame.mixer.find_channel().play(self.pickup_sound)
             self.kill()
         elif self.pos.distance_to(pygame.Vector2(player.rect.x + player.rect.width // 2,
                                                player.rect.y + player.rect.height // 2)) < 200:
@@ -483,13 +594,11 @@ if __name__ == '__main__':
     pygame.display.set_caption("Vampire Survivors на минималках")
     size = [1920, 1080]   #  размер окна
 
-    screen = pygame.display.set_mode(size)
-    screen.convert_alpha()
+    pygame.mixer.init(channels=32)
+
+    screen = pygame.display.set_mode(size, pygame.SRCALPHA)
     colors = [pygame.Color("white"), pygame.Color("black")]
     screen.fill(colors[1])
-
-    SPAWNENEMY = pygame.USEREVENT + 1
-    SHOOT = pygame.USEREVENT + 2
 
     running = True
     clock = pygame.time.Clock()
@@ -500,18 +609,17 @@ if __name__ == '__main__':
     font_size = 64
     myfont_64 = pygame.font.Font(font_path, font_size)
     myfont_32 = pygame.font.Font(font_path, 32)
+    myfont_48 = pygame.font.Font(font_path, 48)
     myfont_128 = pygame.font.Font(font_path, 128)
 
     map = Map("default_map2.png")
-    weapon = Weapon("default_weapon", 60, 20, 350, 1.5)
+    weapon = Weapon("default_weapon", 60, 20, 350, 7)
     player = Player(1000, 500, 75, 90, 100, [weapon])
     spawner = EnemySpawner()
     enemies = pygame.sprite.Group()
     projectiles = pygame.sprite.Group()
     items = pygame.sprite.Group()
     texts = pygame.sprite.Group()
-
-    pygame.time.set_timer(SHOOT, 500)
 
     main_menu()
 
@@ -520,14 +628,11 @@ if __name__ == '__main__':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == SHOOT:
-                player.shoot()
         v_x, v_y = player.key_down()
         map.update(v_x, v_y)
         map.draw()
         enemies.update(v_x, v_y)
         enemies.draw(screen)
-        player.move_to_center()
 
         projectiles.update(v_x, v_y)
         projectiles.draw(screen)
@@ -540,9 +645,7 @@ if __name__ == '__main__':
 
         texts.update(v_x, v_y)
         spawner.update()
-        if player.hp < 0:
-            print("game over!")
-            running = False
+
         time = pygame.time.get_ticks() // 1000
         time = (f"{time // 60 if time > 600 else '0' + str(time // 60) if time > 60 else '00'}:"
                 f"{time % 60 if time % 60 > 9 else '0' + str(time % 60)}")
