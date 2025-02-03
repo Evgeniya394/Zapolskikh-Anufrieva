@@ -25,12 +25,16 @@ def load_image(name, colorkey=None):
 
 
 def main_menu():
-    text_start = myfont_128.render("СТАРТ", True, (255, 245, 245))
+    screen.fill(colors[1])
+    pygame.mixer.music.load("data/sounds/game_sound.wav")
+    pygame.mixer.music.play(-1)
+
+    text_start = myfont_128.render('START', True, (255, 245, 245))
     start_x = 750
     start_y = 200
 
-    text_exit = myfont_128.render("ВЫХОД", True, (255, 245, 245))
-    exit_x = 750
+    text_exit = myfont_128.render("EXIT", True, (255, 245, 245))
+    exit_x = 790
     exit_y = 350
 
     menu_running = True
@@ -54,12 +58,38 @@ def main_menu():
         pygame.display.flip()
 
 
+def pause():
+    continue_text = myfont_128.render("CONTINUE", True, (255, 245, 245))
+    exit_text = myfont_128.render("EXIT", True, (255, 245, 245))
+
+    screen.blit(continue_text, (580, 200))
+    screen.blit(exit_text, (750, 350))
+
+    paused = True
+    while paused:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                paused = False
+                exit(0)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                rect = pygame.Rect(580, 200, continue_text.get_width(), continue_text.get_height())
+                if pygame.Rect.collidepoint(rect, pos):
+                    paused = False
+                rect = pygame.Rect(750, 350, exit_text.get_width(), continue_text.get_height())
+                if pygame.Rect.collidepoint(rect, pos):
+                    paused = False
+                    exit(0)
+
+        pygame.display.flip()
+
+
 def level_up():
     level_up_sound = pygame.mixer.Sound("data/sounds/level_up.wav")
     pygame.mixer.find_channel(True).play(level_up_sound)
 
-    text_level_up = myfont_64.render("НОВЫЙ УРОВЕНЬ!", True, (0, 50, 30))
-    level_up_x = 700
+    text_level_up = myfont_64.render("NEW LEVEL!", True, (0, 50, 30))
+    level_up_x = 740
     level_up_y = 180
 
     try:
@@ -104,6 +134,7 @@ def level_up():
 
 
 def game_over():
+    pygame.mixer.music.stop()
     game_over_sound = pygame.mixer.Sound("data/sounds/game_over.wav")
     pygame.mixer.find_channel(True).play(game_over_sound)
     time = 0
@@ -120,6 +151,7 @@ def game_over():
         screen.blit(surface, (0, 0))
         pygame.display.flip()
         clock.tick(fps)
+
 
 class EnemySpawner:
     def __init__(self):
@@ -628,6 +660,11 @@ if __name__ == '__main__':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
+            pause()
+
         v_x, v_y = player.key_down()
         map.update(v_x, v_y)
         map.draw()
