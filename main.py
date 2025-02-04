@@ -25,17 +25,20 @@ def load_image(name, colorkey=None):
 
 
 def main_menu():
-    screen.fill(colors[1])
+    main_menu_picture = load_image('main_menu.png')
+    main_menu_picture = pygame.transform.scale(main_menu_picture, size)
+    screen.blit(main_menu_picture, (0, 0))
+
     pygame.mixer.music.load("data/sounds/game_sound.wav")
     pygame.mixer.music.play(-1)
 
     text_start = myfont_128.render('START', True, (255, 245, 245))
     start_x = 750
-    start_y = 200
+    start_y = 420
 
     text_exit = myfont_128.render("EXIT", True, (255, 245, 245))
     exit_x = 790
-    exit_y = 350
+    exit_y = 570
 
     menu_running = True
 
@@ -59,11 +62,15 @@ def main_menu():
 
 
 def pause():
+    pause_menu_picture = load_image('pause_menu.png')
+    pause_menu_picture = pygame.transform.scale(pause_menu_picture, size)
+    screen.blit(pause_menu_picture, (0, 0))
+
     continue_text = myfont_128.render("CONTINUE", True, (255, 245, 245))
     exit_text = myfont_128.render("EXIT", True, (255, 245, 245))
 
-    screen.blit(continue_text, (580, 200))
-    screen.blit(exit_text, (750, 350))
+    screen.blit(continue_text, (600, 420))
+    screen.blit(exit_text, (770, 570))
 
     paused = True
     while paused:
@@ -73,10 +80,10 @@ def pause():
                 exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
-                rect = pygame.Rect(580, 200, continue_text.get_width(), continue_text.get_height())
+                rect = pygame.Rect(600, 420, continue_text.get_width(), continue_text.get_height())
                 if pygame.Rect.collidepoint(rect, pos):
                     paused = False
-                rect = pygame.Rect(750, 350, exit_text.get_width(), continue_text.get_height())
+                rect = pygame.Rect(770, 570, exit_text.get_width(), continue_text.get_height())
                 if pygame.Rect.collidepoint(rect, pos):
                     paused = False
                     exit(0)
@@ -141,8 +148,6 @@ def game_over():
     game_over = True
     surface = pygame.Surface((1920, 1080), pygame.SRCALPHA)
 
-    global running
-    running = False
     while game_over:
         time += clock.get_time()
         if time > 2000:
@@ -151,6 +156,42 @@ def game_over():
         screen.blit(surface, (0, 0))
         pygame.display.flip()
         clock.tick(fps)
+    results_menu()
+
+
+def results_menu():
+    results_menu_picture = load_image('results_menu.png')
+    results_menu_picture = pygame.transform.scale(results_menu_picture, size)
+    screen.blit(results_menu_picture, (0, 0))
+
+    time = pygame.time.get_ticks() // 1000
+    time = (f"{time // 60 if time > 600 else '0' + str(time // 60) if time > 60 else '00'}:"
+            f"{time % 60 if time % 60 > 9 else '0' + str(time % 60)}")
+
+    game_over_text = myfont_128.render("GAME OVER", True, (255, 245, 245))
+    result_text = myfont_128.render("RESULT:", True, (255, 245, 245))
+    time_text = myfont_128.render(time, True, (255, 245, 245))
+    exit_text = myfont_128.render("EXIT", True, (255, 245, 245))
+
+    screen.blit(game_over_text, (600, 300))
+    screen.blit(result_text, (450, 600))
+    screen.blit(time_text, (1050, 600))
+    screen.blit(exit_text, (770, 750))
+
+    result = True
+    while result:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                result = False
+                exit(0)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                rect = pygame.Rect(770, 750, exit_text.get_width(), result_text.get_height())
+                if pygame.Rect.collidepoint(rect, pos):
+                    result = False
+                    exit(0)
+
+        pygame.display.flip()
 
 
 class EnemySpawner:
