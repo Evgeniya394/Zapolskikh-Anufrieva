@@ -48,7 +48,7 @@ def main_menu():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 menu_running = False
-                exit(0)
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
                 rect = pygame.Rect(start_x, start_y, text_start.get_width(), text_start.get_height())
@@ -57,7 +57,7 @@ def main_menu():
                 rect = pygame.Rect(exit_x, exit_y, text_exit.get_width(), text_start.get_height())
                 if pygame.Rect.collidepoint(rect, pos):
                     menu_running = False
-                    exit(0)
+                    sys.exit(0)
         pygame.display.flip()
 
 
@@ -77,7 +77,7 @@ def pause():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 paused = False
-                exit(0)
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
                 rect = pygame.Rect(600, 420, continue_text.get_width(), continue_text.get_height())
@@ -86,7 +86,7 @@ def pause():
                 rect = pygame.Rect(770, 570, exit_text.get_width(), continue_text.get_height())
                 if pygame.Rect.collidepoint(rect, pos):
                     paused = False
-                    exit(0)
+                    sys.exit(0)
 
         pygame.display.flip()
 
@@ -122,7 +122,7 @@ def level_up():
     while leveling_up:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                exit(0)
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     pos = event.pos
@@ -183,13 +183,13 @@ def results_menu():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 result = False
-                exit(0)
+                sys.exit(0)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
                 rect = pygame.Rect(770, 750, exit_text.get_width(), result_text.get_height())
                 if pygame.Rect.collidepoint(rect, pos):
                     result = False
-                    exit(0)
+                    sys.exit(0)
 
         pygame.display.flip()
 
@@ -678,7 +678,7 @@ if __name__ == '__main__':
     fps = 60
 
     pygame.font.init()
-    font_path = "data/Monocraft.ttc"
+    font_path = "./data/monocraft.ttc"
     font_size = 64
     myfont_64 = pygame.font.Font(font_path, font_size)
     myfont_32 = pygame.font.Font(font_path, 32)
